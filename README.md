@@ -18,13 +18,34 @@
 - dodano filtrowanie historyjek po statusie
 - poprawiono modele i strukturę localStorage API
 
-### Lab03
-- dodano role użytkowników: admin, devops, developer
-- dodano mockowaną listę użytkowników
-- dodano model zadania
-- dodano CRUD zadań
-- dodano widok szczegółów zadania
-- dodano przypisywanie użytkownika do zadania
-- dodano automatyczne zmiany statusów zadań i historyjek
-- dodano tablicę kanban
-- dodano zapis danych przez localStorage API
+### Lab03 – UI / Visual improvements
+- wprowadzono spójny layout aplikacji (header + karty)
+- dodano sekcję informacyjną z zalogowanym użytkownikiem
+- przebudowano formularz dodawania zadania (czytelny układ, spacing)
+- ulepszono tabelę zadań:
+  - badge dla statusów (todo / doing / done)
+  - badge dla priorytetów (low / medium / high)
+  - wyróżnienie nazwy zadania
+- dodano nowoczesny widok szczegółów zadania:
+  - podział na sekcje (grid)
+  - czytelne etykiety
+- ulepszono tablicę kanban:
+  - kolorowe kolumny (todo / doing / done)
+  - liczniki zadań w kolumnach
+  - karty z badge (status + priorytet)
+  - efekt hover na kartach
+- poprawiono responsywność (mobile/tablet)
+- poprawiono ogólną estetykę (spacing, cienie, kolory, typografia)
+
+---
+
+### Visuals
+
+#### Widok główny
+![Main view](./docs/screens/main.png)
+
+#### Lista zadań + badge
+![Tasks table](./docs/screens/tasks.png)
+
+#### Tablica kanban
+![Kanban](./docs/screens/kanban.png)
