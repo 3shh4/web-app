@@ -17,3 +17,14 @@
 - dodano priorytety historyjek: low / medium / high
 - dodano filtrowanie historyjek po statusie
 - poprawiono modele i strukturę localStorage API
+
+### Lab03
+- dodano role użytkowników: admin, devops, developer
+- dodano mockowaną listę użytkowników
+- dodano model zadania
+- dodano CRUD zadań
+- dodano widok szczegółów zadania
+- dodano przypisywanie użytkownika do zadania
+- dodano automatyczne zmiany statusów zadań i historyjek
+- dodano tablicę kanban
+- dodano zapis danych przez localStorage API

@@ -1,428 +1,527 @@
-import { useEffect, useMemo, useState } from 'react';
-import './App.css';
+import { useMemo, useState } from "react";
+import "./App.css";
 
-import type { Project } from './models/Project';
-import type { Story, StoryPriority, StoryStatus } from './models/Story';
-import type { User } from './models/User';
+import type { User } from "./models/User";
+import type { Story } from "./models/Story";
+import type { Task, TaskPriority } from "./models/Task";
 
+import { getUsers, getLoggedUser } from "./api/userStorage";
+import { getStories } from "./api/storyStorage";
 import {
-  getProjects,
-  createProject,
-  updateProject,
-  deleteProject,
-} from './api/projectStorage';
-import { getLoggedUser } from './api/userStorage';
-import {
-  getActiveProjectId,
-  setActiveProjectId,
-  clearActiveProjectId,
-} from './api/activeProjectStorage';
-import {
-  getStoriesByProject,
-  createStory,
-  updateStory,
-  deleteStory,
-} from './api/storyStorage';
+  assignTask,
+  createTask,
+  deleteTask,
+  getTasks,
+  markTaskDone,
+  updateTask,
+} from "./api/taskStorage";
 
-type StoryFormData = {
+type TaskFormState = {
   name: string;
   description: string;
-  priority: StoryPriority;
-  status: StoryStatus;
+  priority: TaskPriority;
+  storyId: string;
+  estimatedHours: number;
 };
 
-const emptyStoryForm: StoryFormData = {
-  name: '',
-  description: '',
-  priority: 'medium',
-  status: 'todo',
+const emptyForm: TaskFormState = {
+  name: "",
+  description: "",
+  priority: "medium",
+  storyId: "",
+  estimatedHours: 1,
 };
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("pl-PL");
+}
+
+function getPriorityLabel(priority: TaskPriority) {
+  switch (priority) {
+    case "low":
+      return "Niski";
+    case "medium":
+      return "Średni";
+    case "high":
+      return "Wysoki";
+    default:
+      return priority;
+  }
+}
+
+function getStatusLabel(status: Task["status"]) {
+  switch (status) {
+    case "todo":
+      return "Todo";
+    case "doing":
+      return "Doing";
+    case "done":
+      return "Done";
+    default:
+      return status;
+  }
+}
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>(() => getUsers());
+  const [loggedUser, setLoggedUser] = useState<User | null>(() => getLoggedUser());
+  const [stories, setStories] = useState<Story[]>(() => getStories());
+  const [tasks, setTasks] = useState<Task[]>(() => getTasks());
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
+  const [form, setForm] = useState<TaskFormState>(emptyForm);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  const [projectName, setProjectName] = useState('');
-  const [projectDescription, setProjectDescription] = useState('');
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  function refreshData() {
+    setUsers(getUsers());
+    setLoggedUser(getLoggedUser());
+    setStories(getStories());
+    setTasks(getTasks());
+  }
 
-  const [stories, setStories] = useState<Story[]>([]);
-  const [storyForm, setStoryForm] = useState<StoryFormData>(emptyStoryForm);
-  const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
-  const [storyFilter, setStoryFilter] = useState<'all' | StoryStatus>('all');
-
-  useEffect(() => {
-    const loggedUser = getLoggedUser();
-    setUser(loggedUser);
-
-    const loadedProjects = getProjects();
-    setProjects(loadedProjects);
-
-    const savedActiveProjectId = getActiveProjectId();
-
-    if (savedActiveProjectId && loadedProjects.some((p) => p.id === savedActiveProjectId)) {
-      setActiveProjectIdState(savedActiveProjectId);
-    } else if (loadedProjects.length > 0) {
-      setActiveProjectIdState(loadedProjects[0].id);
-      setActiveProjectId(loadedProjects[0].id);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!activeProjectId) {
-      setStories([]);
-      return;
-    }
-
-    setStories(getStoriesByProject(activeProjectId));
-  }, [activeProjectId]);
-
-  const activeProject = useMemo(
-    () => projects.find((project) => project.id === activeProjectId) ?? null,
-    [projects, activeProjectId]
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [tasks, selectedTaskId]
   );
 
-  const filteredStories = useMemo(() => {
-    if (storyFilter === 'all') return stories;
-    return stories.filter((story) => story.status === storyFilter);
-  }, [stories, storyFilter]);
+  const executionUsers = useMemo(
+    () => users.filter((user) => user.role === "developer" || user.role === "devops"),
+    [users]
+  );
 
-  function refreshProjects() {
-    const updatedProjects = getProjects();
-    setProjects(updatedProjects);
+  function resetForm() {
+    setForm(emptyForm);
+    setEditingTaskId(null);
+  }
 
-    if (updatedProjects.length === 0) {
-      setActiveProjectIdState(null);
-      clearActiveProjectId();
-      setStories([]);
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!form.name.trim() || !form.description.trim() || !form.storyId) {
+      alert("Uzupełnij nazwę, opis i historyjkę.");
       return;
     }
 
-    const stillExists = updatedProjects.some((p) => p.id === activeProjectId);
+    if (editingTaskId) {
+      const taskToUpdate = tasks.find((task) => task.id === editingTaskId);
+      if (!taskToUpdate) return;
 
-    if (!stillExists) {
-      const nextProjectId = updatedProjects[0].id;
-      setActiveProjectIdState(nextProjectId);
-      setActiveProjectId(nextProjectId);
-    }
-  }
-
-  function refreshStories(projectId: string) {
-    setStories(getStoriesByProject(projectId));
-  }
-
-  function handleProjectSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!projectName.trim() || !projectDescription.trim()) return;
-
-    if (editingProjectId) {
-      updateProject({
-        id: editingProjectId,
-        name: projectName.trim(),
-        description: projectDescription.trim(),
+      updateTask({
+        ...taskToUpdate,
+        name: form.name,
+        description: form.description,
+        priority: form.priority,
+        storyId: form.storyId,
+        estimatedHours: Number(form.estimatedHours),
       });
     } else {
-      const created = createProject({
-        name: projectName.trim(),
-        description: projectDescription.trim(),
-      });
-
-      if (!activeProjectId) {
-        setActiveProjectIdState(created.id);
-        setActiveProjectId(created.id);
-      }
-    }
-
-    setProjectName('');
-    setProjectDescription('');
-    setEditingProjectId(null);
-    refreshProjects();
-  }
-
-  function handleProjectEdit(project: Project) {
-    setProjectName(project.name);
-    setProjectDescription(project.description);
-    setEditingProjectId(project.id);
-  }
-
-  function handleProjectDelete(projectId: string) {
-    deleteProject(projectId);
-
-    if (activeProjectId === projectId) {
-      clearActiveProjectId();
-    }
-
-    refreshProjects();
-  }
-
-  function handleActiveProjectChange(projectId: string) {
-    setActiveProjectIdState(projectId);
-    setActiveProjectId(projectId);
-    setEditingStoryId(null);
-    setStoryForm(emptyStoryForm);
-    refreshStories(projectId);
-  }
-
-  function handleStorySubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!activeProjectId || !user) return;
-    if (!storyForm.name.trim() || !storyForm.description.trim()) return;
-
-    if (editingStoryId) {
-      const existing = stories.find((story) => story.id === editingStoryId);
-      if (!existing) return;
-
-      updateStory({
-        ...existing,
-        name: storyForm.name.trim(),
-        description: storyForm.description.trim(),
-        priority: storyForm.priority,
-        status: storyForm.status,
-      });
-    } else {
-      createStory({
-        name: storyForm.name.trim(),
-        description: storyForm.description.trim(),
-        priority: storyForm.priority,
-        status: storyForm.status,
-        projectId: activeProjectId,
-        ownerId: user.id,
+      createTask({
+        name: form.name,
+        description: form.description,
+        priority: form.priority,
+        storyId: form.storyId,
+        estimatedHours: Number(form.estimatedHours),
       });
     }
 
-    setStoryForm(emptyStoryForm);
-    setEditingStoryId(null);
-    refreshStories(activeProjectId);
+    refreshData();
+    resetForm();
   }
 
-  function handleStoryEdit(story: Story) {
-    setEditingStoryId(story.id);
-    setStoryForm({
-      name: story.name,
-      description: story.description,
-      priority: story.priority,
-      status: story.status,
+  function startEdit(task: Task) {
+    setEditingTaskId(task.id);
+    setForm({
+      name: task.name,
+      description: task.description,
+      priority: task.priority,
+      storyId: task.storyId,
+      estimatedHours: task.estimatedHours,
     });
+    setSelectedTaskId(task.id);
   }
 
-  function handleStoryDelete(storyId: string) {
-    if (!activeProjectId) return;
-    deleteStory(storyId);
-    refreshStories(activeProjectId);
+  function handleDelete(taskId: string) {
+    deleteTask(taskId);
+
+    if (selectedTaskId === taskId) {
+      setSelectedTaskId(null);
+    }
+
+    refreshData();
   }
 
-  function resetProjectForm() {
-    setProjectName('');
-    setProjectDescription('');
-    setEditingProjectId(null);
+  function handleAssign(taskId: string, userId: string) {
+    if (!userId) return;
+
+    assignTask(taskId, userId);
+    refreshData();
   }
 
-  function resetStoryForm() {
-    setStoryForm(emptyStoryForm);
-    setEditingStoryId(null);
+  function handleMarkDone(taskId: string) {
+    const task = tasks.find((t) => t.id === taskId);
+
+    if (!task?.assignedUserId) {
+      alert("Najpierw przypisz osobę do zadania.");
+      return;
+    }
+
+    markTaskDone(taskId);
+    refreshData();
   }
+
+  function getStoryName(storyId: string) {
+    return stories.find((story) => story.id === storyId)?.title ?? "Brak historyjki";
+  }
+
+  function getUserName(userId?: string) {
+    if (!userId) return "-";
+    return users.find((user) => user.id === userId)?.name ?? "-";
+  }
+
+  const todoTasks = tasks.filter((task) => task.status === "todo");
+  const doingTasks = tasks.filter((task) => task.status === "doing");
+  const doneTasks = tasks.filter((task) => task.status === "done");
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <h1>ManageMe</h1>
-          <p>Lab02 — użytkownik, aktywny projekt, historyjki</p>
+    <div className="container">
+      <header className="page-header">
+        <div className="page-title-box">
+          <p className="eyebrow">Project Management App</p>
+          <h1>ManageMe - Lab03</h1>
+          <p className="page-subtitle">Zadania, użytkownicy i tablica kanban</p>
         </div>
 
-        <div className="user-box">
-          <span>Zalogowany użytkownik:</span>
-          <strong>
-            {user ? `${user.firstName} ${user.lastName}` : 'Brak'}
+        <div className="logged-box">
+          <span className="logged-label">Zalogowany</span>
+          <strong className="logged-user">
+            {loggedUser ? loggedUser.name : "Brak danych"}
           </strong>
+          <span className="logged-role">
+            {loggedUser ? loggedUser.role : "brak roli"}
+          </span>
         </div>
       </header>
 
-      <main className="layout">
-        <section className="card">
-          <h2>Projekty</h2>
+      <section className="card">
+        <div className="section-heading">
+          <h2>{editingTaskId ? "Edytuj zadanie" : "Dodaj zadanie"}</h2>
+          <p>Utwórz nowe zadanie i przypisz je do wybranej historyjki.</p>
+        </div>
 
-          <form onSubmit={handleProjectSubmit} className="form">
-            <input
-              type="text"
-              placeholder="Nazwa projektu"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-            />
-            <textarea
-              placeholder="Opis projektu"
-              value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
-            />
-            <div className="row">
-              <button type="submit">
-                {editingProjectId ? 'Zapisz projekt' : 'Dodaj projekt'}
+        <form className="form-grid" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Nazwa zadania"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+
+          <select
+            value={form.priority}
+            onChange={(e) =>
+              setForm({ ...form, priority: e.target.value as TaskPriority })
+            }
+          >
+            <option value="low">Niski</option>
+            <option value="medium">Średni</option>
+            <option value="high">Wysoki</option>
+          </select>
+
+          <select
+            value={form.storyId}
+            onChange={(e) => setForm({ ...form, storyId: e.target.value })}
+          >
+            <option value="">Wybierz historyjkę</option>
+            {stories.map((story) => (
+              <option key={story.id} value={story.id}>
+                {story.title} ({story.status})
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            min={1}
+            placeholder="Przewidywany czas"
+            value={form.estimatedHours}
+            onChange={(e) =>
+              setForm({ ...form, estimatedHours: Number(e.target.value) })
+            }
+          />
+
+          <textarea
+            placeholder="Opis zadania"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+
+          <div className="button-row">
+            <button type="submit" className="primary-btn">
+              {editingTaskId ? "Zapisz zmiany" : "Dodaj zadanie"}
+            </button>
+
+            {editingTaskId && (
+              <button type="button" className="secondary-btn" onClick={resetForm}>
+                Anuluj edycję
               </button>
-              {editingProjectId && (
-                <button type="button" onClick={resetProjectForm}>
-                  Anuluj edycję
-                </button>
-              )}
-            </div>
-          </form>
+            )}
+          </div>
+        </form>
+      </section>
 
-          <div className="list">
-            {projects.length === 0 ? (
-              <p>Brak projektów.</p>
-            ) : (
-              projects.map((project) => (
-                <div
-                  key={project.id}
-                  className={`list-item ${project.id === activeProjectId ? 'active' : ''}`}
-                >
-                  <div>
-                    <h3>{project.name}</h3>
-                    <p>{project.description}</p>
-                  </div>
+      <section className="card">
+        <div className="section-heading">
+          <h2>Lista zadań</h2>
+          <p>Przegląd wszystkich zadań wraz z aktualnym statusem i osobą odpowiedzialną.</p>
+        </div>
 
-                  <div className="row wrap">
-                    <button type="button" onClick={() => handleActiveProjectChange(project.id)}>
-                      Ustaw jako aktywny
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nazwa</th>
+                <th>Priorytet</th>
+                <th>Status</th>
+                <th>Historyjka</th>
+                <th>Osoba</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((task) => (
+                <tr key={task.id}>
+                  <td className="task-name-cell">{task.name}</td>
+                  <td>
+                    <span className={`badge priority-badge ${task.priority}`}>
+                      {getPriorityLabel(task.priority)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge status-badge ${task.status}`}>
+                      {getStatusLabel(task.status)}
+                    </span>
+                  </td>
+                  <td>{getStoryName(task.storyId)}</td>
+                  <td>{getUserName(task.assignedUserId)}</td>
+                  <td className="actions-cell">
+                    <button
+                      type="button"
+                      className="table-btn"
+                      onClick={() => setSelectedTaskId(task.id)}
+                    >
+                      Szczegóły
                     </button>
-                    <button type="button" onClick={() => handleProjectEdit(project)}>
+                    <button
+                      type="button"
+                      className="table-btn"
+                      onClick={() => startEdit(task)}
+                    >
                       Edytuj
                     </button>
-                    <button type="button" onClick={() => handleProjectDelete(project.id)}>
+                    <button
+                      type="button"
+                      className="table-btn danger-btn"
+                      onClick={() => handleDelete(task.id)}
+                    >
                       Usuń
                     </button>
+                  </td>
+                </tr>
+              ))}
+
+              {tasks.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="empty-state-cell">
+                    Brak zadań.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {selectedTask && (
+        <section className="card">
+          <div className="section-heading">
+            <h2>Szczegóły zadania</h2>
+            <p>Podgląd danych zadania, przypisanej historyjki i osoby odpowiedzialnej.</p>
+          </div>
+
+          <div className="details-grid">
+            <div className="detail-item">
+              <span className="detail-label">Nazwa</span>
+              <strong>{selectedTask.name}</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Priorytet</span>
+              <span className={`badge priority-badge ${selectedTask.priority}`}>
+                {getPriorityLabel(selectedTask.priority)}
+              </span>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Status</span>
+              <span className={`badge status-badge ${selectedTask.status}`}>
+                {getStatusLabel(selectedTask.status)}
+              </span>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Historyjka</span>
+              <strong>{getStoryName(selectedTask.storyId)}</strong>
+            </div>
+
+            <div className="detail-item detail-item-full">
+              <span className="detail-label">Opis</span>
+              <strong>{selectedTask.description}</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Przewidywany czas</span>
+              <strong>{selectedTask.estimatedHours}h</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Zrealizowane roboczogodziny</span>
+              <strong>{selectedTask.workedHours}h</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Data dodania</span>
+              <strong>{formatDate(selectedTask.createdAt)}</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Data startu</span>
+              <strong>{formatDate(selectedTask.startedAt)}</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Data zakończenia</span>
+              <strong>{formatDate(selectedTask.finishedAt)}</strong>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">Przypisana osoba</span>
+              <strong>{getUserName(selectedTask.assignedUserId)}</strong>
+            </div>
+          </div>
+
+          <div className="details-actions">
+            <select
+              defaultValue=""
+              onChange={(e) => handleAssign(selectedTask.id, e.target.value)}
+            >
+              <option value="">Przypisz osobę</option>
+              {executionUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="success-btn"
+              onClick={() => handleMarkDone(selectedTask.id)}
+            >
+              Oznacz jako done
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="card">
+        <div className="section-heading">
+          <h2>Tablica Kanban</h2>
+          <p>Podział zadań według etapu realizacji: todo, doing oraz done.</p>
+        </div>
+
+        <div className="kanban">
+          <div className="kanban-column todo-column">
+            <div className="kanban-header">
+              <h3>TODO</h3>
+              <span className="column-count">{todoTasks.length}</span>
+            </div>
+
+            {todoTasks.length === 0 ? (
+              <p className="kanban-empty">Brak zadań</p>
+            ) : (
+              todoTasks.map((task) => (
+                <div key={task.id} className="kanban-card">
+                  <strong>{task.name}</strong>
+                  <span>{getStoryName(task.storyId)}</span>
+                  <div className="kanban-meta">
+                    <span className={`badge priority-badge ${task.priority}`}>
+                      {getPriorityLabel(task.priority)}
+                    </span>
+                    <span className={`badge status-badge ${task.status}`}>
+                      {getStatusLabel(task.status)}
+                    </span>
                   </div>
                 </div>
               ))
             )}
           </div>
-        </section>
 
-        <section className="card">
-          <h2>Aktywny projekt</h2>
-          {activeProject ? (
-            <>
-              <div className="active-project-box">
-                <h3>{activeProject.name}</h3>
-                <p>{activeProject.description}</p>
-              </div>
+          <div className="kanban-column doing-column">
+            <div className="kanban-header">
+              <h3>DOING</h3>
+              <span className="column-count">{doingTasks.length}</span>
+            </div>
 
-              <hr />
-
-              <h2>Historyjki</h2>
-
-              <form onSubmit={handleStorySubmit} className="form">
-                <input
-                  type="text"
-                  placeholder="Nazwa historyjki"
-                  value={storyForm.name}
-                  onChange={(e) =>
-                    setStoryForm((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                />
-                <textarea
-                  placeholder="Opis historyjki"
-                  value={storyForm.description}
-                  onChange={(e) =>
-                    setStoryForm((prev) => ({ ...prev, description: e.target.value }))
-                  }
-                />
-
-                <div className="row">
-                  <select
-                    value={storyForm.priority}
-                    onChange={(e) =>
-                      setStoryForm((prev) => ({
-                        ...prev,
-                        priority: e.target.value as StoryPriority,
-                      }))
-                    }
-                  >
-                    <option value="low">Niski</option>
-                    <option value="medium">Średni</option>
-                    <option value="high">Wysoki</option>
-                  </select>
-
-                  <select
-                    value={storyForm.status}
-                    onChange={(e) =>
-                      setStoryForm((prev) => ({
-                        ...prev,
-                        status: e.target.value as StoryStatus,
-                      }))
-                    }
-                  >
-                    <option value="todo">Todo</option>
-                    <option value="doing">Doing</option>
-                    <option value="done">Done</option>
-                  </select>
+            {doingTasks.length === 0 ? (
+              <p className="kanban-empty">Brak zadań</p>
+            ) : (
+              doingTasks.map((task) => (
+                <div key={task.id} className="kanban-card">
+                  <strong>{task.name}</strong>
+                  <span>{getStoryName(task.storyId)}</span>
+                  <small>Osoba: {getUserName(task.assignedUserId)}</small>
+                  <div className="kanban-meta">
+                    <span className={`badge priority-badge ${task.priority}`}>
+                      {getPriorityLabel(task.priority)}
+                    </span>
+                    <span className={`badge status-badge ${task.status}`}>
+                      {getStatusLabel(task.status)}
+                    </span>
+                  </div>
                 </div>
+              ))
+            )}
+          </div>
 
-                <div className="row">
-                  <button type="submit">
-                    {editingStoryId ? 'Zapisz historyjkę' : 'Dodaj historyjkę'}
-                  </button>
-                  {editingStoryId && (
-                    <button type="button" onClick={resetStoryForm}>
-                      Anuluj edycję
-                    </button>
-                  )}
+          <div className="kanban-column done-column">
+            <div className="kanban-header">
+              <h3>DONE</h3>
+              <span className="column-count">{doneTasks.length}</span>
+            </div>
+
+            {doneTasks.length === 0 ? (
+              <p className="kanban-empty">Brak zadań</p>
+            ) : (
+              doneTasks.map((task) => (
+                <div key={task.id} className="kanban-card">
+                  <strong>{task.name}</strong>
+                  <span>{getStoryName(task.storyId)}</span>
+                  <small>Zakończono: {formatDate(task.finishedAt)}</small>
+                  <div className="kanban-meta">
+                    <span className={`badge priority-badge ${task.priority}`}>
+                      {getPriorityLabel(task.priority)}
+                    </span>
+                    <span className={`badge status-badge ${task.status}`}>
+                      {getStatusLabel(task.status)}
+                    </span>
+                  </div>
                 </div>
-              </form>
-
-              <div className="row filter-row">
-                <label htmlFor="storyFilter">Filtr statusu:</label>
-                <select
-                  id="storyFilter"
-                  value={storyFilter}
-                  onChange={(e) =>
-                    setStoryFilter(e.target.value as 'all' | StoryStatus)
-                  }
-                >
-                  <option value="all">Wszystkie</option>
-                  <option value="todo">Todo</option>
-                  <option value="doing">Doing</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
-
-              <div className="list">
-                {filteredStories.length === 0 ? (
-                  <p>Brak historyjek dla wybranego filtra.</p>
-                ) : (
-                  filteredStories.map((story) => (
-                    <div key={story.id} className="list-item">
-                      <div>
-                        <h3>{story.name}</h3>
-                        <p>{story.description}</p>
-                        <small>
-                          Priorytet: <strong>{story.priority}</strong> | Status:{' '}
-                          <strong>{story.status}</strong> | Data utworzenia:{' '}
-                          <strong>{new Date(story.createdAt).toLocaleString()}</strong>
-                        </small>
-                      </div>
-
-                      <div className="row wrap">
-                        <button type="button" onClick={() => handleStoryEdit(story)}>
-                          Edytuj
-                        </button>
-                        <button type="button" onClick={() => handleStoryDelete(story.id)}>
-                          Usuń
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            <p>Najpierw dodaj i wybierz aktywny projekt.</p>
-          )}
-        </section>
-      </main>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

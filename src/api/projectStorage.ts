@@ -4,6 +4,7 @@ const PROJECTS_KEY = 'manageme_projects';
 
 function readProjects(): Project[] {
   const raw = localStorage.getItem(PROJECTS_KEY);
+
   if (!raw) return [];
 
   try {
@@ -21,9 +22,7 @@ export function getProjects(): Project[] {
   return readProjects();
 }
 
-export function createProject(
-  project: Omit<Project, 'id'>
-): Project {
+export function createProject(project: Omit<Project, 'id'>): Project {
   const newProject: Project = {
     ...project,
     id: crypto.randomUUID(),
@@ -40,6 +39,7 @@ export function updateProject(updatedProject: Project): void {
   const projects = readProjects().map((project) =>
     project.id === updatedProject.id ? updatedProject : project
   );
+
   writeProjects(projects);
 }
 
