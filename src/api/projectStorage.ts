@@ -1,6 +1,8 @@
-import type { Project } from '../models/Project';
+import type { Project } from "../models/Project";
+import { createManyNotifications } from "./notificationStorage";
+import { getUsers } from "./userStorage";
 
-const PROJECTS_KEY = 'manageme_projects';
+const PROJECTS_KEY = "manageme_projects";
 
 function readProjects(): Project[] {
   const raw = localStorage.getItem(PROJECTS_KEY);
@@ -22,7 +24,7 @@ export function getProjects(): Project[] {
   return readProjects();
 }
 
-export function createProject(project: Omit<Project, 'id'>): Project {
+export function createProject(project: Omit<Project, "id">): Project {
   const newProject: Project = {
     ...project,
     id: crypto.randomUUID(),
@@ -31,6 +33,19 @@ export function createProject(project: Omit<Project, 'id'>): Project {
   const projects = readProjects();
   projects.push(newProject);
   writeProjects(projects);
+
+  const adminUsers = getUsers().filter((user) => user.role === "admin");
+
+  if (adminUsers.length > 0) {
+    createManyNotifications(
+      adminUsers.map((admin) => ({
+        title: "Utworzono nowy projekt",
+        message: `Utworzono nowy projekt: "${newProject.name}".`,
+        priority: "high",
+        recipientId: admin.id,
+      }))
+    );
+  }
 
   return newProject;
 }

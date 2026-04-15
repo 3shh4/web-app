@@ -6,4 +6,5 @@ export interface Story {
   description: string;
   status: StoryStatus;
   projectId?: string;
+  ownerId?: string;
 }

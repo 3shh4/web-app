@@ -1,63 +1,61 @@
 ## Changelog
 
-### LAB01
-- utworzono projekt (Vite + React + TypeScript)
-- zaimplementowano CRUD projektów (id, nazwa, opis)
-- zapis danych w localStorage
-- wydzielono warstwę komunikacji z API (projectStorage)
+### LAB01 – CRUD projektów
+- utworzono aplikację (Vite + React + TypeScript)
+- model Project + pełny CRUD
+- zapis danych w localStorage (projectStorage)
 
 ---
 
-### LAB02
-- dodano mock zalogowanego użytkownika (imię, nazwisko)
-- zaimplementowano wybór aktywnego projektu (localStorage)
-- dodano CRUD historyjek powiązanych z projektem
-- statusy historyjek: todo / doing / done
-- priorytety: low / medium / high
-- filtrowanie/listowanie historyjek wg statusu
+### LAB02 – Historyjki i użytkownik
+- mock zalogowanego użytkownika
+- aktywny projekt (localStorage)
+- model Story + CRUD
+- statusy: to do / doing / done
+- filtrowanie historyjek
 
 ---
 
-### LAB03
-- rozbudowano model użytkownika o role (admin, devops, developer)
-- dodano listę użytkowników (mock)
-- zaimplementowano CRUD zadań
-- dodano szczegóły zadania (opis, czas, użytkownik, daty)
+### LAB03 – Zadania i logika
+- role użytkowników (admin, devops, developer)
+- model Task + CRUD
 - przypisywanie użytkownika:
-  - zmiana statusu todo → doing
-  - ustawienie daty startu
-  - aktualizacja statusu historyjki
-- oznaczanie zadania jako done:
-  - ustawienie daty zakończenia
-  - automatyczne zamknięcie historyjki (jeśli wszystkie zadania done)
-- dodano tablicę kanban (todo / doing / done)
-- zapis danych przez localStorage API
+  - todo → doing + data startu
+- zakończenie zadania:
+  - status done + data końca
+  - auto zamknięcie historyjki
+- tablica kanban (todo / doing / done)
 
 ---
 
-### LAB04
-- refactor: podział App.tsx na komponenty:
-  - TaskForm, TaskTable, TaskDetails, KanbanBoard
-- migracja UI na Material UI
-- implementacja dark / light mode:
-  - przełącznik + zapis w localStorage
-  - obsługa prefers-color-scheme
-- poprawa UX:
-  - ręczna zmiana statusu (todo / doing / done)
-  - przypisywanie użytkownika
-  - czytelny wybór historyjki (nazwa + status)
-  - możliwość zamykania widoku szczegółów
-- poprawa layoutu i estetyki (karty, spacing, responsywność)
+### LAB04 – UI i refactor
+- podział App.tsx na komponenty
+- Material UI
+- dark / light mode (localStorage)
+- poprawa UX i layoutu
+- ulepszony kanban
+
+---
+
+### LAB05 – Powiadomienia
+- model Notification + storage
+- lista, szczegóły, badge (unread)
+- oznaczanie jako przeczytane (manual + auto)
+- popup dla medium / high
+- powiadomienia dla zdarzeń:
+  - task: create, delete, assign, status
+  - projekt: create → admin (high)
+- walidacja formularza (błędy przy polach)
 
 ---
 
 ### Visuals
 
-#### Widok główny /w DarkMode
-![Main view](./docs/screens/main_dark.png)
+#### Widok główny Light/Dark Mode
+![Main view](./docs/screens/light&dark.png)
 
-#### Poprawione/aktualne UI
-![Main view](./docs/screens/UI_Improvements.png)
+#### Powiadomienia
+![Main view](./docs/screens/powiadomienia.png)
 
 #### Lista zadań + badge
 ![Tasks table](./docs/screens/tasks.png)

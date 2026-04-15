@@ -1,4 +1,4 @@
-import { Card, CardContent, Chip, Typography, Box } from "@mui/material";
+import { Box, Chip, Divider, Typography } from "@mui/material";
 import type { Task } from "../models/Task";
 
 type KanbanBoardProps = {
@@ -10,61 +10,176 @@ type KanbanBoardProps = {
 type KanbanColumnProps = {
   title: string;
   tasks: Task[];
+  tone: "todo" | "doing" | "done";
 };
 
-function KanbanColumn({ title, tasks }: KanbanColumnProps) {
+const columnToneStyles = {
+  todo: {
+    borderColor: "rgba(148, 163, 184, 0.28)",
+    headerColor: "#cbd5e1",
+    badgeBg: "rgba(148, 163, 184, 0.16)",
+    topLine: "rgba(148, 163, 184, 0.55)",
+  },
+  doing: {
+    borderColor: "rgba(56, 189, 248, 0.28)",
+    headerColor: "#38bdf8",
+    badgeBg: "rgba(56, 189, 248, 0.16)",
+    topLine: "rgba(56, 189, 248, 0.55)",
+  },
+  done: {
+    borderColor: "rgba(74, 222, 128, 0.28)",
+    headerColor: "#4ade80",
+    badgeBg: "rgba(74, 222, 128, 0.16)",
+    topLine: "rgba(74, 222, 128, 0.55)",
+  },
+};
+
+function getPriorityColor(priority: Task["priority"]) {
+  switch (priority) {
+    case "low":
+      return "success";
+    case "medium":
+      return "warning";
+    case "high":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function KanbanColumn({ title, tasks, tone }: KanbanColumnProps) {
+  const toneStyle = columnToneStyles[tone];
+
   return (
-    <Card elevation={3} sx={{ height: "100%" }}>
-      <CardContent>
-        <Box sx={{ display: "grid", gap: 2 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography variant="h6">{title}</Typography>
-            <Chip label={tasks.length} size="small" />
-          </Box>
+    <Box
+      sx={{
+        borderRadius: 3,
+        border: "1px solid",
+        borderColor: toneStyle.borderColor,
+        bgcolor: "background.paper",
+        overflow: "hidden",
+        minHeight: 240,
+      }}
+    >
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderTop: "2px solid",
+          borderTopColor: toneStyle.topLine,
+          borderBottom: "1px solid",
+          borderBottomColor: "divider",
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 800,
+            color: toneStyle.headerColor,
+            letterSpacing: 0.3,
+          }}
+        >
+          {title}
+        </Typography>
 
-          {tasks.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              Brak zadań
-            </Typography>
-          ) : (
-            <Box sx={{ display: "grid", gap: 1.5 }}>
-              {tasks.map((task) => (
-                <Card key={task.id} variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: "grid", gap: 1 }}>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: 600 }}
-                      >
-                        {task.name}
-                      </Typography>
-
-                      <Typography variant="body2" color="text.secondary">
-                        {task.description || "Brak opisu"}
-                      </Typography>
-
-                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                        <Chip
-                          label={task.priority.toUpperCase()}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
+        <Box
+          sx={{
+            minWidth: 28,
+            height: 28,
+            px: 1,
+            borderRadius: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: toneStyle.badgeBg,
+            fontSize: "0.8rem",
+            fontWeight: 700,
+          }}
+        >
+          {tasks.length}
         </Box>
-      </CardContent>
-    </Card>
+      </Box>
+
+      <Box
+        sx={{
+          p: 2,
+          display: "grid",
+          gap: 1.25,
+        }}
+      >
+        {tasks.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Brak zadań w tej kolumnie
+          </Typography>
+        ) : (
+          tasks.map((task) => (
+            <Box
+              key={task.id}
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                bgcolor: "rgba(15, 23, 42, 0.12)",
+                border: "1px solid",
+                borderColor: "rgba(255,255,255,0.06)",
+                transition: "transform 0.18s ease, background-color 0.18s ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  bgcolor: "rgba(15, 23, 42, 0.2)",
+                },
+              }}
+            >
+              <Box sx={{ display: "grid", gap: 1 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {task.name}
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {task.description?.trim() || "Brak opisu"}
+                </Typography>
+
+                <Divider sx={{ opacity: 0.3 }} />
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Chip
+                    label={task.priority.toUpperCase()}
+                    size="small"
+                    color={getPriorityColor(task.priority)}
+                  />
+
+                  <Typography variant="caption" color="text.secondary">
+                    {task.estimatedHours}h
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ))
+        )}
+      </Box>
+    </Box>
   );
 }
 
@@ -80,13 +195,14 @@ export default function KanbanBoard({
         gap: 2,
         gridTemplateColumns: {
           xs: "1fr",
-          md: "repeat(3, 1fr)",
+          md: "repeat(3, minmax(0, 1fr))",
         },
+        alignItems: "start",
       }}
     >
-      <KanbanColumn title="TO DO" tasks={todoTasks} />
-      <KanbanColumn title="DOING" tasks={doingTasks} />
-      <KanbanColumn title="DONE" tasks={doneTasks} />
+      <KanbanColumn title="TO DO" tasks={todoTasks} tone="todo" />
+      <KanbanColumn title="DOING" tasks={doingTasks} tone="doing" />
+      <KanbanColumn title="DONE" tasks={doneTasks} tone="done" />
     </Box>
   );
 }

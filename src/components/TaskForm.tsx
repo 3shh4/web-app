@@ -18,6 +18,13 @@ export type TaskFormState = {
   estimatedHours: number;
 };
 
+export type TaskFormErrors = {
+  name?: string;
+  description?: string;
+  storyId?: string;
+  estimatedHours?: string;
+};
+
 type TaskFormProps = {
   form: TaskFormState;
   stories: Story[];
@@ -25,6 +32,7 @@ type TaskFormProps = {
   onChange: (field: keyof TaskFormState, value: string | number) => void;
   editingTaskId: string | null;
   onCancel?: () => void;
+  errors?: TaskFormErrors;
 };
 
 export default function TaskForm({
@@ -34,6 +42,7 @@ export default function TaskForm({
   onChange,
   editingTaskId,
   onCancel,
+  errors = {},
 }: TaskFormProps) {
   return (
     <Card
@@ -66,6 +75,8 @@ export default function TaskForm({
             value={form.name}
             onChange={(e) => onChange("name", e.target.value)}
             fullWidth
+            error={Boolean(errors.name)}
+            helperText={errors.name}
           />
 
           <TextField
@@ -86,6 +97,8 @@ export default function TaskForm({
             value={form.storyId}
             onChange={(e) => onChange("storyId", e.target.value)}
             fullWidth
+            error={Boolean(errors.storyId)}
+            helperText={errors.storyId}
           >
             <MenuItem value="">Wybierz historyjkę</MenuItem>
 
@@ -115,6 +128,8 @@ export default function TaskForm({
             onChange={(e) => onChange("estimatedHours", Number(e.target.value))}
             fullWidth
             slotProps={{ htmlInput: { min: 1 } }}
+            error={Boolean(errors.estimatedHours)}
+            helperText={errors.estimatedHours}
           />
 
           <TextField
@@ -124,6 +139,8 @@ export default function TaskForm({
             fullWidth
             multiline
             minRows={4}
+            error={Boolean(errors.description)}
+            helperText={errors.description}
           />
 
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
