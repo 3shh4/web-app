@@ -35,10 +35,40 @@ export function saveStories(stories: Story[]): void {
   localStorage.setItem(STORIES_KEY, JSON.stringify(stories));
 }
 
+export function createStory(story: Omit<Story, "id">): Story {
+  const stories = getStories();
+
+  const newStory: Story = {
+    ...story,
+    id: crypto.randomUUID(),
+  };
+
+  saveStories([...stories, newStory]);
+
+  return newStory;
+}
+
+export function updateStory(updatedStory: Story): void {
+  const stories = getStories();
+
+  const updated = stories.map((story) =>
+    story.id === updatedStory.id ? updatedStory : story
+  );
+
+  saveStories(updated);
+}
+
+export function deleteStory(storyId: string): void {
+  const stories = getStories().filter((story) => story.id !== storyId);
+  saveStories(stories);
+}
+
 export function updateStoryStatus(storyId: string, status: StoryStatus): void {
   const stories = getStories();
+
   const updated = stories.map((story) =>
     story.id === storyId ? { ...story, status } : story
   );
+
   saveStories(updated);
 }

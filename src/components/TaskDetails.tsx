@@ -87,6 +87,7 @@ export default function TaskDetails({
   return (
     <Card
       elevation={2}
+      data-testid="task-details-panel"
       sx={{
         bgcolor: "background.paper",
         border: "1px solid",
@@ -179,6 +180,7 @@ export default function TaskDetails({
             value={selectedTask.assignedUserId ?? ""}
             onChange={(e) => onAssign(selectedTask.id, e.target.value)}
             fullWidth
+            data-testid="task-assign-select"
           >
             <MenuItem value="">Wybierz osobę</MenuItem>
             {users.map((user) => (
@@ -196,6 +198,7 @@ export default function TaskDetails({
               onChangeStatus(selectedTask.id, e.target.value as Task["status"])
             }
             fullWidth
+            data-testid="task-status-select"
           >
             <MenuItem value="todo">TO DO</MenuItem>
             <MenuItem value="doing">DOING</MenuItem>

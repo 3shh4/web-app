@@ -5,17 +5,33 @@ import {
   Badge,
   Box,
   Button,
+  Card,
+  CardContent,
   Container,
   CssBaseline,
   FormControlLabel,
+  MenuItem,
+  Stack,
   Switch,
+  TextField,
   Typography,
 } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 import { authStorageApi } from "./api/authStorage";
 import { userRepository } from "./api/userRepository";
-import { getStories } from "./api/storyStorage";
+import {
+  createProject,
+  deleteProject,
+  getProjects,
+  updateProject,
+} from "./api/projectStorage";
+import {
+  createStory,
+  deleteStory,
+  getStories,
+  updateStory,
+} from "./api/storyStorage";
 import {
   assignTask,
   createTask,
@@ -49,6 +65,7 @@ import NotificationDialog from "./components/NotificationDialog";
 import UsersList from "./components/UsersList";
 
 import type { User, UserRole } from "./models/User";
+import type { Project } from "./models/Project";
 import type { Story } from "./models/Story";
 import type { Task } from "./models/Task";
 import type { Notification } from "./models/Notification";
@@ -60,6 +77,17 @@ type AppView =
   | "notifications"
   | "notification-details"
   | "users";
+
+type ProjectFormState = {
+  name: string;
+  description: string;
+};
+
+type StoryFormState = {
+  title: string;
+  description: string;
+  status: Story["status"];
+};
 
 const getInitialThemeMode = (): ThemeMode => {
   const saved = localStorage.getItem("manageme-theme");
@@ -76,6 +104,17 @@ const emptyForm: TaskFormState = {
   priority: "medium",
   storyId: "",
   estimatedHours: 1,
+};
+
+const emptyProjectForm: ProjectFormState = {
+  name: "",
+  description: "",
+};
+
+const emptyStoryForm: StoryFormState = {
+  title: "",
+  description: "",
+  status: "todo",
 };
 
 function App() {
@@ -217,6 +256,7 @@ function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [loggedUser, setLoggedUser] = useState<User | null>(null);
 
+  const [projects, setProjects] = useState<Project[]>(() => getProjects());
   const [stories, setStories] = useState<Story[]>(() => getStories());
   const [tasks, setTasks] = useState<Task[]>(() => getTasks());
 
@@ -227,6 +267,13 @@ function App() {
   const [formErrors, setFormErrors] = useState<TaskFormErrors>({});
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const [projectForm, setProjectForm] =
+    useState<ProjectFormState>(emptyProjectForm);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
+  const [storyForm, setStoryForm] = useState<StoryFormState>(emptyStoryForm);
+  const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
 
   const [currentView, setCurrentView] = useState<AppView>("dashboard");
   const [selectedNotificationId, setSelectedNotificationId] = useState<
@@ -240,32 +287,33 @@ function App() {
   const formSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-  async function loadInitialData() {
-    const freshUsers = await userRepository.getUsers();
+    async function loadInitialData() {
+      const freshUsers = await userRepository.getUsers();
 
-    const loggedUserId = authStorageApi.getLoggedUserId();
-    const freshLoggedUser = loggedUserId
-      ? (await userRepository.getUserById(loggedUserId)) ?? null
-      : null;
+      const loggedUserId = authStorageApi.getLoggedUserId();
+      const freshLoggedUser = loggedUserId
+        ? (await userRepository.getUserById(loggedUserId)) ?? null
+        : null;
 
-    setUsers(freshUsers);
-    setLoggedUser(freshLoggedUser);
-    setStories(getStories());
-    setTasks(getTasks());
+      setUsers(freshUsers);
+      setLoggedUser(freshLoggedUser);
+      setProjects(getProjects());
+      setStories(getStories());
+      setTasks(getTasks());
 
-    if (freshLoggedUser) {
-      setNotifications(getNotificationsByRecipient(freshLoggedUser.id));
-      setUnreadCount(getUnreadCount(freshLoggedUser.id));
-    } else {
-      setNotifications([]);
-      setUnreadCount(0);
+      if (freshLoggedUser) {
+        setNotifications(getNotificationsByRecipient(freshLoggedUser.id));
+        setUnreadCount(getUnreadCount(freshLoggedUser.id));
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+
+      setAuthLoaded(true);
     }
 
-    setAuthLoaded(true);
-  }
-
-  void loadInitialData();
-}, []);
+    void loadInitialData();
+  }, []);
 
   async function handleLogin(
     email: string,
@@ -338,11 +386,13 @@ function App() {
       ? (await userRepository.getUserById(loggedUserId)) ?? null
       : null;
 
+    const freshProjects = getProjects();
     const freshStories = getStories();
     const freshTasks = getTasks();
 
     setUsers(freshUsers);
     setLoggedUser(freshLoggedUser);
+    setProjects(freshProjects);
     setStories(freshStories);
     setTasks(freshTasks);
 
@@ -372,6 +422,114 @@ function App() {
     () => users.filter((u) => u.role === "developer" || u.role === "devops"),
     [users]
   );
+
+  function resetProjectForm() {
+    setProjectForm(emptyProjectForm);
+    setEditingProjectId(null);
+  }
+
+  function handleProjectSubmit(e: FormEvent) {
+    e.preventDefault();
+
+    if (!projectForm.name.trim() || !projectForm.description.trim()) {
+      return;
+    }
+
+    if (editingProjectId) {
+      const projectToUpdate = projects.find(
+        (project) => project.id === editingProjectId
+      );
+
+      if (!projectToUpdate) return;
+
+      updateProject({
+        ...projectToUpdate,
+        name: projectForm.name.trim(),
+        description: projectForm.description.trim(),
+      });
+    } else {
+      createProject({
+        name: projectForm.name.trim(),
+        description: projectForm.description.trim(),
+      });
+    }
+
+    resetProjectForm();
+    void refreshData();
+  }
+
+  function startEditProject(project: Project) {
+    setEditingProjectId(project.id);
+    setProjectForm({
+      name: project.name,
+      description: project.description,
+    });
+  }
+
+  function handleDeleteProject(projectId: string) {
+    deleteProject(projectId);
+
+    if (editingProjectId === projectId) {
+      resetProjectForm();
+    }
+
+    void refreshData();
+  }
+
+  function resetStoryForm() {
+    setStoryForm(emptyStoryForm);
+    setEditingStoryId(null);
+  }
+
+  function handleStorySubmit(e: FormEvent) {
+    e.preventDefault();
+
+    if (!storyForm.title.trim() || !storyForm.description.trim()) {
+      return;
+    }
+
+    if (editingStoryId) {
+      const storyToUpdate = stories.find((story) => story.id === editingStoryId);
+
+      if (!storyToUpdate) return;
+
+      updateStory({
+        ...storyToUpdate,
+        title: storyForm.title.trim(),
+        description: storyForm.description.trim(),
+        status: storyForm.status,
+      });
+    } else {
+      createStory({
+        title: storyForm.title.trim(),
+        description: storyForm.description.trim(),
+        status: storyForm.status,
+        ownerId: loggedUser?.id,
+      });
+    }
+
+    resetStoryForm();
+    void refreshData();
+  }
+
+  function startEditStory(story: Story) {
+    setEditingStoryId(story.id);
+    setStoryForm({
+      title: story.title,
+      description: story.description,
+      status: story.status,
+    });
+  }
+
+  function handleDeleteStory(storyId: string) {
+    deleteStory(storyId);
+
+    if (editingStoryId === storyId) {
+      resetStoryForm();
+    }
+
+    void refreshData();
+  }
 
   function validateForm(values: TaskFormState): TaskFormErrors {
     const errors: TaskFormErrors = {};
@@ -831,6 +989,290 @@ function App() {
                 alignItems: "start",
               }}
             >
+              <Card data-testid="projects-panel">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Projekty
+                  </Typography>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Minimalny CRUD projektów dla testów e2e LAB08.
+                  </Typography>
+
+                  <Box
+                    component="form"
+                    onSubmit={handleProjectSubmit}
+                    sx={{ display: "grid", gap: 2 }}
+                  >
+                    <TextField
+                      label="Nazwa projektu"
+                      value={projectForm.name}
+                      onChange={(e) =>
+                        setProjectForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      fullWidth
+                      slotProps={{
+                        htmlInput: { "data-testid": "project-name-input" },
+                      }}
+                    />
+
+                    <TextField
+                      label="Opis projektu"
+                      value={projectForm.description}
+                      onChange={(e) =>
+                        setProjectForm((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      slotProps={{
+                        htmlInput: {
+                          "data-testid": "project-description-input",
+                        },
+                      }}
+                    />
+
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        data-testid="project-submit-button"
+                      >
+                        {editingProjectId ? "Zapisz projekt" : "Dodaj projekt"}
+                      </Button>
+
+                      {editingProjectId && (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          onClick={resetProjectForm}
+                        >
+                          Anuluj
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+
+                  <Stack spacing={1.25} sx={{ mt: 2 }}>
+                    {projects.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">
+                        Brak projektów.
+                      </Typography>
+                    ) : (
+                      projects.map((project) => (
+                        <Box
+                          key={project.id}
+                          data-testid="project-item"
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            display: "grid",
+                            gap: 1,
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {project.name}
+                            </Typography>
+
+                            <Typography variant="body2" color="text.secondary">
+                              {project.description}
+                            </Typography>
+                          </Box>
+
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => startEditProject(project)}
+                              data-testid="project-edit-button"
+                            >
+                              Edytuj
+                            </Button>
+
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleDeleteProject(project.id)}
+                              data-testid="project-delete-button"
+                            >
+                              Usuń
+                            </Button>
+                          </Stack>
+                        </Box>
+                      ))
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="stories-panel">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Historyjki
+                  </Typography>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Minimalny CRUD historyjek dla testów e2e LAB08.
+                  </Typography>
+
+                  <Box
+                    component="form"
+                    onSubmit={handleStorySubmit}
+                    sx={{ display: "grid", gap: 2 }}
+                  >
+                    <TextField
+                      label="Tytuł historyjki"
+                      value={storyForm.title}
+                      onChange={(e) =>
+                        setStoryForm((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      fullWidth
+                      slotProps={{
+                        htmlInput: { "data-testid": "story-title-input" },
+                      }}
+                    />
+
+                    <TextField
+                      label="Opis historyjki"
+                      value={storyForm.description}
+                      onChange={(e) =>
+                        setStoryForm((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      slotProps={{
+                        htmlInput: {
+                          "data-testid": "story-description-input",
+                        },
+                      }}
+                    />
+
+                    <TextField
+                      select
+                      label="Status historyjki"
+                      value={storyForm.status}
+                      onChange={(e) =>
+                        setStoryForm((prev) => ({
+                          ...prev,
+                          status: e.target.value as Story["status"],
+                        }))
+                      }
+                      fullWidth
+                      data-testid="story-status-select"
+                    >
+                      <MenuItem value="todo">TO DO</MenuItem>
+                      <MenuItem value="doing">DOING</MenuItem>
+                      <MenuItem value="done">DONE</MenuItem>
+                    </TextField>
+
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        data-testid="story-submit-button"
+                      >
+                        {editingStoryId
+                          ? "Zapisz historyjkę"
+                          : "Dodaj historyjkę"}
+                      </Button>
+
+                      {editingStoryId && (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          onClick={resetStoryForm}
+                        >
+                          Anuluj
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+
+                  <Stack spacing={1.25} sx={{ mt: 2 }}>
+                    {stories.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">
+                        Brak historyjek.
+                      </Typography>
+                    ) : (
+                      stories.map((story) => (
+                        <Box
+                          key={story.id}
+                          data-testid="story-item"
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            display: "grid",
+                            gap: 1,
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {story.title}
+                            </Typography>
+
+                            <Typography variant="body2" color="text.secondary">
+                              {story.description}
+                            </Typography>
+
+                            <Typography variant="caption" color="primary.main">
+                              {story.status.toUpperCase()}
+                            </Typography>
+                          </Box>
+
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => startEditStory(story)}
+                              data-testid="story-edit-button"
+                            >
+                              Edytuj
+                            </Button>
+
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleDeleteStory(story.id)}
+                              data-testid="story-delete-button"
+                            >
+                              Usuń
+                            </Button>
+                          </Stack>
+                        </Box>
+                      ))
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+
               <Box ref={formSectionRef}>
                 <TaskForm
                   form={form}

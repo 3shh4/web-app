@@ -70,6 +70,16 @@
 - umożliwiono zapis i odczyt użytkowników z Firestore w trybie `database`
 - pozostawiono projekty, historyjki, zadania i powiadomienia na `localStorage` jako etapową migrację
 
+---
+
+### LAB08
+- dodano środowisko testów e2e z użyciem Playwright
+- dodano konfigurację automatycznego uruchamiania aplikacji Vite dla testów
+- dodano smoke test startu aplikacji i mock logowania Google
+- dodano test e2e CRUD obejmujący projekt, historyjkę i zadanie
+- test e2e obejmuje zmianę statusu zadania oraz edycję i usuwanie danych
+- testy działają w trybie `localStorage`, bez zależności od Firebase
+
 ### Visuals
 
 #### Widok główny Light/Dark Mode

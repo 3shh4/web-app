@@ -97,7 +97,7 @@ export default function TaskTable({
 
               <TableBody>
                 {tasks.map((task) => (
-                  <TableRow key={task.id} hover>
+                  <TableRow key={task.id} hover data-testid="task-row">
                     <TableCell>{task.name}</TableCell>
 
                     <TableCell>
@@ -125,15 +125,28 @@ export default function TaskTable({
                           justifyContent: "flex-end",
                         }}
                       >
-                        <IconButton onClick={() => onSelect(task)}>
+                        <IconButton
+                          onClick={() => onSelect(task)}
+                          aria-label={`Szczegóły zadania ${task.name}`}
+                          data-testid="task-details-button"
+                        >
                           <VisibilityIcon />
                         </IconButton>
 
-                        <IconButton onClick={() => onEdit(task)}>
+                        <IconButton
+                          onClick={() => onEdit(task)}
+                          aria-label={`Edytuj zadanie ${task.name}`}
+                          data-testid="task-edit-button"
+                        >
                           <EditIcon />
                         </IconButton>
 
-                        <IconButton color="error" onClick={() => onDelete(task.id)}>
+                        <IconButton
+                          color="error"
+                          onClick={() => onDelete(task.id)}
+                          aria-label={`Usuń zadanie ${task.name}`}
+                          data-testid="task-delete-button"
+                        >
                           <DeleteIcon />
                         </IconButton>
                       </Box>
