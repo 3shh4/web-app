@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import "./App.css";
 
 import {
@@ -14,7 +14,7 @@ import {
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 import { authStorageApi } from "./api/authStorage";
-import { getUsers, userStorageApi } from "./api/userStorage";
+import { userRepository } from "./api/userRepository";
 import { getStories } from "./api/storyStorage";
 import {
   assignTask,
@@ -213,40 +213,15 @@ function App() {
     [themeMode]
   );
 
-  const [users, setUsers] = useState<User[]>(() => getUsers());
-
-  const [loggedUser, setLoggedUser] = useState<User | null>(() => {
-    const loggedUserId = authStorageApi.getLoggedUserId();
-
-    if (!loggedUserId) {
-      return null;
-    }
-
-    return userStorageApi.getUserById(loggedUserId) ?? null;
-  });
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loggedUser, setLoggedUser] = useState<User | null>(null);
 
   const [stories, setStories] = useState<Story[]>(() => getStories());
   const [tasks, setTasks] = useState<Task[]>(() => getTasks());
 
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const loggedUserId = authStorageApi.getLoggedUserId();
-
-    if (!loggedUserId) {
-      return [];
-    }
-
-    return getNotificationsByRecipient(loggedUserId);
-  });
-
-  const [unreadCount, setUnreadCount] = useState<number>(() => {
-    const loggedUserId = authStorageApi.getLoggedUserId();
-
-    if (!loggedUserId) {
-      return 0;
-    }
-
-    return getUnreadCount(loggedUserId);
-  });
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const [form, setForm] = useState<TaskFormState>(emptyForm);
   const [formErrors, setFormErrors] = useState<TaskFormErrors>({});
@@ -264,8 +239,40 @@ function App() {
 
   const formSectionRef = useRef<HTMLDivElement | null>(null);
 
-  function handleLogin(email: string, firstName: string, lastName: string) {
-    const result = userStorageApi.createOrGetUserFromGoogle({
+  useEffect(() => {
+  async function loadInitialData() {
+    const freshUsers = await userRepository.getUsers();
+
+    const loggedUserId = authStorageApi.getLoggedUserId();
+    const freshLoggedUser = loggedUserId
+      ? (await userRepository.getUserById(loggedUserId)) ?? null
+      : null;
+
+    setUsers(freshUsers);
+    setLoggedUser(freshLoggedUser);
+    setStories(getStories());
+    setTasks(getTasks());
+
+    if (freshLoggedUser) {
+      setNotifications(getNotificationsByRecipient(freshLoggedUser.id));
+      setUnreadCount(getUnreadCount(freshLoggedUser.id));
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+
+    setAuthLoaded(true);
+  }
+
+  void loadInitialData();
+}, []);
+
+  async function handleLogin(
+    email: string,
+    firstName: string,
+    lastName: string
+  ) {
+    const result = await userRepository.createOrGetUserFromGoogle({
       email,
       firstName,
       lastName,
@@ -274,7 +281,7 @@ function App() {
     authStorageApi.setLoggedUser(result.user);
     setLoggedUser(result.user);
 
-    const freshUsers = getUsers();
+    const freshUsers = await userRepository.getUsers();
     setUsers(freshUsers);
 
     setNotifications(getNotificationsByRecipient(result.user.id));
@@ -308,27 +315,27 @@ function App() {
     setSelectedNotificationId(null);
   }
 
-  function handleChangeUserRole(userId: string, role: UserRole) {
-    userStorageApi.updateUserRole(userId, role);
-    refreshData();
+  async function handleChangeUserRole(userId: string, role: UserRole) {
+    await userRepository.updateUserRole(userId, role);
+    await refreshData();
   }
 
-  function handleBlockUser(userId: string) {
-    userStorageApi.blockUser(userId);
-    refreshData();
+  async function handleBlockUser(userId: string) {
+    await userRepository.blockUser(userId);
+    await refreshData();
   }
 
-  function handleUnblockUser(userId: string) {
-    userStorageApi.unblockUser(userId);
-    refreshData();
+  async function handleUnblockUser(userId: string) {
+    await userRepository.unblockUser(userId);
+    await refreshData();
   }
 
-  function refreshData() {
-    const freshUsers = getUsers();
+  async function refreshData() {
+    const freshUsers = await userRepository.getUsers();
 
     const loggedUserId = authStorageApi.getLoggedUserId();
     const freshLoggedUser = loggedUserId
-      ? userStorageApi.getUserById(loggedUserId) ?? null
+      ? (await userRepository.getUserById(loggedUserId)) ?? null
       : null;
 
     const freshStories = getStories();
@@ -428,7 +435,7 @@ function App() {
   function openNotificationsView() {
     setSelectedNotificationId(null);
     setCurrentView("notifications");
-    refreshData();
+    void refreshData();
   }
 
   function handleOpenNotification(notificationId: string) {
@@ -441,21 +448,21 @@ function App() {
 
     setSelectedNotificationId(notificationId);
     setCurrentView("notification-details");
-    refreshData();
+    void refreshData();
   }
 
   function handleMarkNotificationAsRead(notificationId: string) {
     markAsRead(notificationId);
-    refreshData();
+    void refreshData();
   }
 
   function handleMarkAllNotificationsAsRead() {
     if (!loggedUser) return;
     markAllAsRead(loggedUser.id);
-    refreshData();
+    void refreshData();
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     const errors = validateForm(form);
@@ -501,7 +508,7 @@ function App() {
       }
     }
 
-    refreshData();
+    void refreshData();
     resetForm();
   }
 
@@ -551,7 +558,7 @@ function App() {
       setSelectedTaskId(null);
     }
 
-    refreshData();
+    void refreshData();
   }
 
   function handleAssign(taskId: string, userId: string) {
@@ -575,7 +582,7 @@ function App() {
     });
 
     maybeOpenNotificationDialog(notification);
-    refreshData();
+    void refreshData();
   }
 
   function handleChangeStatus(taskId: string, status: Task["status"]) {
@@ -611,12 +618,31 @@ function App() {
       maybeOpenNotificationDialog(notification);
     }
 
-    refreshData();
+    void refreshData();
   }
 
   const todoTasks = tasks.filter((t) => t.status === "todo");
   const doingTasks = tasks.filter((t) => t.status === "doing");
   const doneTasks = tasks.filter((t) => t.status === "done");
+
+  if (!authLoaded) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box
+          sx={{
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "background.default",
+            color: "text.primary",
+          }}
+        >
+          <Typography color="text.secondary">Ładowanie aplikacji...</Typography>
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   if (!loggedUser) {
     return (
@@ -882,7 +908,7 @@ function App() {
         onClose={() => {
           setDialogOpen(false);
           setDialogNotification(null);
-          refreshData();
+          void refreshData();
         }}
         onOpenDetails={(notificationId) => {
           setDialogOpen(false);
