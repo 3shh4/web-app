@@ -1,8 +1,13 @@
-export type UserRole = "admin" | "devops" | "developer";
+export type UserRole = 'guest' | 'admin' | 'devops' | 'developer';
 
 export interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
+  firstName: string;
+  lastName: string;
   role: UserRole;
+  isBlocked: boolean;
+  isSuperAdmin?: boolean;
+  createdAt: string;
 }

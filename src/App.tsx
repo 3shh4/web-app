@@ -13,23 +13,8 @@ import {
 } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 
-import TaskForm, {
-  type TaskFormErrors,
-  type TaskFormState,
-} from "./components/TaskForm";
-import TaskTable from "./components/TaskTable";
-import TaskDetails from "./components/TaskDetails";
-import KanbanBoard from "./components/KanbanBoard";
-import NotificationsList from "./components/NotificationsList";
-import NotificationDetails from "./components/NotificationDetails";
-import NotificationDialog from "./components/NotificationDialog";
-
-import type { User } from "./models/User";
-import type { Story } from "./models/Story";
-import type { Task } from "./models/Task";
-import type { Notification } from "./models/Notification";
-
-import { getUsers, getLoggedUser } from "./api/userStorage";
+import { authStorageApi } from "./api/authStorage";
+import { getUsers, userStorageApi } from "./api/userStorage";
 import { getStories } from "./api/storyStorage";
 import {
   assignTask,
@@ -47,8 +32,34 @@ import {
   markAsRead,
 } from "./api/notificationStorage";
 
+import { LoginView } from "./components/LoginView";
+import { GuestWaitingView } from "./components/GuestWaitingView";
+import { BlockedUserView } from "./components/BlockedUserView";
+
+import TaskForm, {
+  type TaskFormErrors,
+  type TaskFormState,
+} from "./components/TaskForm";
+import TaskTable from "./components/TaskTable";
+import TaskDetails from "./components/TaskDetails";
+import KanbanBoard from "./components/KanbanBoard";
+import NotificationsList from "./components/NotificationsList";
+import NotificationDetails from "./components/NotificationDetails";
+import NotificationDialog from "./components/NotificationDialog";
+import UsersList from "./components/UsersList";
+
+import type { User, UserRole } from "./models/User";
+import type { Story } from "./models/Story";
+import type { Task } from "./models/Task";
+import type { Notification } from "./models/Notification";
+
 type ThemeMode = "light" | "dark";
-type AppView = "dashboard" | "notifications" | "notification-details";
+
+type AppView =
+  | "dashboard"
+  | "notifications"
+  | "notification-details"
+  | "users";
 
 const getInitialThemeMode = (): ThemeMode => {
   const saved = localStorage.getItem("manageme-theme");
@@ -80,37 +91,162 @@ function App() {
         palette: {
           mode: themeMode,
           primary: {
-            main: "#3b82f6",
+            main: "#4f8cff",
           },
           secondary: {
-            main: "#6366f1",
+            main: "#7c8cff",
           },
           background: {
-            default: themeMode === "dark" ? "#0f172a" : "#f8fafc",
-            paper: themeMode === "dark" ? "#1e293b" : "#ffffff",
+            default: themeMode === "dark" ? "#07142f" : "#f4f7fb",
+            paper: themeMode === "dark" ? "#24344d" : "#ffffff",
+          },
+          divider:
+            themeMode === "dark" ? "rgba(255,255,255,0.08)" : "#dbe4f0",
+          text: {
+            primary: themeMode === "dark" ? "#f8fbff" : "#102038",
+            secondary: themeMode === "dark" ? "#b8c6da" : "#5f6f86",
           },
         },
         shape: {
-          borderRadius: 16,
+          borderRadius: 14,
         },
         typography: {
           fontFamily: "Inter, system-ui, sans-serif",
+          h4: {
+            fontWeight: 800,
+            letterSpacing: -0.5,
+          },
+          h5: {
+            fontWeight: 700,
+          },
+          button: {
+            textTransform: "none",
+            fontWeight: 600,
+          },
+        },
+        components: {
+          MuiContainer: {
+            styleOverrides: {
+              root: {
+                paddingLeft: 24,
+                paddingRight: 24,
+              },
+            },
+          },
+          MuiCard: {
+            styleOverrides: {
+              root: {
+                borderRadius: 18,
+                border: `1px solid ${
+                  themeMode === "dark"
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.08)"
+                }`,
+                boxShadow:
+                  themeMode === "dark"
+                    ? "0 10px 24px rgba(0,0,0,0.22)"
+                    : "0 10px 24px rgba(15,23,42,0.08)",
+                backgroundImage: "none",
+              },
+            },
+          },
+          MuiPaper: {
+            styleOverrides: {
+              root: {
+                backgroundImage: "none",
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                borderRadius: 12,
+                paddingInline: 14,
+              },
+              contained: {
+                boxShadow: "0 8px 20px rgba(79,140,255,0.22)",
+              },
+            },
+          },
+          MuiOutlinedInput: {
+            styleOverrides: {
+              root: {
+                borderRadius: 14,
+                backgroundColor:
+                  themeMode === "dark"
+                    ? "rgba(255,255,255,0.02)"
+                    : "rgba(15,23,42,0.02)",
+              },
+            },
+          },
+          MuiFormControlLabel: {
+            styleOverrides: {
+              root: {
+                marginLeft: 0,
+                marginRight: 0,
+              },
+            },
+          },
+          MuiTableCell: {
+            styleOverrides: {
+              root: {
+                borderBottom: `1px solid ${
+                  themeMode === "dark"
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.08)"
+                }`,
+              },
+              head: {
+                fontWeight: 700,
+              },
+            },
+          },
+          MuiChip: {
+            styleOverrides: {
+              root: {
+                fontWeight: 700,
+              },
+            },
+          },
         },
       }),
     [themeMode]
   );
 
   const [users, setUsers] = useState<User[]>(() => getUsers());
-  const [loggedUser, setLoggedUser] = useState<User | null>(() => getLoggedUser());
+
+  const [loggedUser, setLoggedUser] = useState<User | null>(() => {
+    const loggedUserId = authStorageApi.getLoggedUserId();
+
+    if (!loggedUserId) {
+      return null;
+    }
+
+    return userStorageApi.getUserById(loggedUserId) ?? null;
+  });
+
   const [stories, setStories] = useState<Story[]>(() => getStories());
   const [tasks, setTasks] = useState<Task[]>(() => getTasks());
 
-  const [notifications, setNotifications] = useState<Notification[]>(() =>
-    getLoggedUser() ? getNotificationsByRecipient(getLoggedUser()!.id) : []
-  );
-  const [unreadCount, setUnreadCount] = useState<number>(() =>
-    getLoggedUser() ? getUnreadCount(getLoggedUser()!.id) : 0
-  );
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const loggedUserId = authStorageApi.getLoggedUserId();
+
+    if (!loggedUserId) {
+      return [];
+    }
+
+    return getNotificationsByRecipient(loggedUserId);
+  });
+
+  const [unreadCount, setUnreadCount] = useState<number>(() => {
+    const loggedUserId = authStorageApi.getLoggedUserId();
+
+    if (!loggedUserId) {
+      return 0;
+    }
+
+    return getUnreadCount(loggedUserId);
+  });
 
   const [form, setForm] = useState<TaskFormState>(emptyForm);
   const [formErrors, setFormErrors] = useState<TaskFormErrors>({});
@@ -118,20 +254,83 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const [currentView, setCurrentView] = useState<AppView>("dashboard");
-  const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(
-    null
-  );
+  const [selectedNotificationId, setSelectedNotificationId] = useState<
+    string | null
+  >(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogNotification, setDialogNotification] = useState<Notification | null>(
-    null
-  );
+  const [dialogNotification, setDialogNotification] =
+    useState<Notification | null>(null);
 
   const formSectionRef = useRef<HTMLDivElement | null>(null);
 
+  function handleLogin(email: string, firstName: string, lastName: string) {
+    const result = userStorageApi.createOrGetUserFromGoogle({
+      email,
+      firstName,
+      lastName,
+    });
+
+    authStorageApi.setLoggedUser(result.user);
+    setLoggedUser(result.user);
+
+    const freshUsers = getUsers();
+    setUsers(freshUsers);
+
+    setNotifications(getNotificationsByRecipient(result.user.id));
+    setUnreadCount(getUnreadCount(result.user.id));
+
+    if (result.isNewUser) {
+      const admins = freshUsers.filter(
+        (user) =>
+          user.role === "admin" &&
+          !user.isBlocked &&
+          user.id !== result.user.id
+      );
+
+      admins.forEach((admin) => {
+        createNotification({
+          title: "Nowy użytkownik oczekuje na zatwierdzenie",
+          message: `Użytkownik ${result.user.name} (${result.user.email}) zalogował się pierwszy raz i otrzymał rolę guest.`,
+          priority: "high",
+          recipientId: admin.id,
+        });
+      });
+    }
+  }
+
+  function handleLogout() {
+    authStorageApi.logout();
+    setLoggedUser(null);
+    setNotifications([]);
+    setUnreadCount(0);
+    setCurrentView("dashboard");
+    setSelectedNotificationId(null);
+  }
+
+  function handleChangeUserRole(userId: string, role: UserRole) {
+    userStorageApi.updateUserRole(userId, role);
+    refreshData();
+  }
+
+  function handleBlockUser(userId: string) {
+    userStorageApi.blockUser(userId);
+    refreshData();
+  }
+
+  function handleUnblockUser(userId: string) {
+    userStorageApi.unblockUser(userId);
+    refreshData();
+  }
+
   function refreshData() {
     const freshUsers = getUsers();
-    const freshLoggedUser = getLoggedUser();
+
+    const loggedUserId = authStorageApi.getLoggedUserId();
+    const freshLoggedUser = loggedUserId
+      ? userStorageApi.getUserById(loggedUserId) ?? null
+      : null;
+
     const freshStories = getStories();
     const freshTasks = getTasks();
 
@@ -156,7 +355,9 @@ function App() {
 
   const selectedNotification = useMemo(
     () =>
-      selectedNotificationId ? getNotificationById(selectedNotificationId) ?? null : null,
+      selectedNotificationId
+        ? getNotificationById(selectedNotificationId) ?? null
+        : null,
     [selectedNotificationId]
   );
 
@@ -193,10 +394,7 @@ function App() {
     setEditingTaskId(null);
   }
 
-  function handleFormChange(
-    field: keyof TaskFormState,
-    value: string | number
-  ) {
+  function handleFormChange(field: keyof TaskFormState, value: string | number) {
     setForm((prev: TaskFormState) => ({ ...prev, [field]: value }));
 
     setFormErrors((prev) => ({
@@ -206,7 +404,10 @@ function App() {
   }
 
   function getStoryTitle(storyId: string) {
-    return stories.find((story) => story.id === storyId)?.title ?? "Nieznana historyjka";
+    return (
+      stories.find((story) => story.id === storyId)?.title ??
+      "Nieznana historyjka"
+    );
   }
 
   function getStoryOwnerId(storyId: string) {
@@ -217,6 +418,7 @@ function App() {
   function maybeOpenNotificationDialog(notification: Notification) {
     if (!loggedUser) return;
     if (notification.recipientId !== loggedUser.id) return;
+
     if (notification.priority === "medium" || notification.priority === "high") {
       setDialogNotification(notification);
       setDialogOpen(true);
@@ -416,6 +618,33 @@ function App() {
   const doingTasks = tasks.filter((t) => t.status === "doing");
   const doneTasks = tasks.filter((t) => t.status === "done");
 
+  if (!loggedUser) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <LoginView onLogin={handleLogin} />
+      </ThemeProvider>
+    );
+  }
+
+  if (loggedUser.isBlocked) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <BlockedUserView onLogout={handleLogout} />
+      </ThemeProvider>
+    );
+  }
+
+  if (loggedUser.role === "guest") {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <GuestWaitingView onLogout={handleLogout} />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -425,18 +654,20 @@ function App() {
           minHeight: "100vh",
           bgcolor: "background.default",
           color: "text.primary",
-          py: 4,
+          py: { xs: 3, md: 5 },
         }}
       >
-        <Container maxWidth="xl">
+        <Container maxWidth="lg">
           <Box
             sx={{
               mb: 4,
-              display: "flex",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "1fr auto",
+              },
               gap: 2,
-              alignItems: "center",
+              alignItems: "start",
             }}
           >
             <Box>
@@ -445,57 +676,58 @@ function App() {
                 sx={{
                   letterSpacing: 1.5,
                   color: "primary.main",
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}
               >
                 PROJECT MANAGEMENT APP
               </Typography>
 
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                ManageMe
-              </Typography>
+              <Typography variant="h4">ManageMe</Typography>
 
               <Typography color="text.secondary">
-                {currentView === "dashboard" && "Zadania, użytkownicy i tablica kanban"}
-                {currentView === "notifications" && "Lista wszystkich powiadomień"}
-                {currentView === "notification-details" && "Szczegóły powiadomienia"}
+                {currentView === "dashboard" &&
+                  "Zadania, użytkownicy i tablica kanban"}
+                {currentView === "notifications" &&
+                  "Lista wszystkich powiadomień"}
+                {currentView === "notification-details" &&
+                  "Szczegóły powiadomienia"}
+                {currentView === "users" && "Zarządzanie użytkownikami"}
               </Typography>
             </Box>
 
             <Box
               sx={{
-                px: 3,
+                px: 2,
                 py: 1.5,
                 borderRadius: 3,
                 bgcolor: "background.paper",
-                boxShadow: 2,
-                textAlign: "right",
-                minWidth: 240,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                textAlign: { xs: "left", md: "right" },
+                width: { xs: "100%", md: 320 },
                 border: "1px solid",
                 borderColor: "divider",
                 display: "grid",
-                gap: 1,
+                gap: 0.75,
+                alignSelf: "start",
               }}
             >
               <Typography variant="caption" color="text.secondary">
                 ZALOGOWANY
               </Typography>
 
-              <Typography sx={{ fontWeight: 600 }}>
-                {loggedUser?.name ?? "Brak"}
-              </Typography>
+              <Typography sx={{ fontWeight: 700 }}>{loggedUser.name}</Typography>
 
               <Typography variant="caption" color="primary.main">
-                {loggedUser?.role ?? "-"}
+                {loggedUser.role}
               </Typography>
 
               <Box
                 sx={{
                   display: "flex",
-                  gap: 1,
-                  justifyContent: "flex-end",
+                  gap: 0.75,
+                  justifyContent: { xs: "flex-start", md: "flex-end" },
                   flexWrap: "wrap",
-                  mt: 0.5,
+                  mt: 1,
                 }}
               >
                 <Button
@@ -507,7 +739,12 @@ function App() {
                 </Button>
 
                 <Button
-                  variant={currentView !== "dashboard" ? "contained" : "outlined"}
+                  variant={
+                    currentView === "notifications" ||
+                    currentView === "notification-details"
+                      ? "contained"
+                      : "outlined"
+                  }
                   size="small"
                   onClick={openNotificationsView}
                 >
@@ -515,16 +752,38 @@ function App() {
                     <span>Powiadomienia</span>
                   </Badge>
                 </Button>
+
+                {loggedUser.role === "admin" && (
+                  <Button
+                    variant={currentView === "users" ? "contained" : "outlined"}
+                    size="small"
+                    onClick={() => setCurrentView("users")}
+                  >
+                    Użytkownicy
+                  </Button>
+                )}
+
+                <Button variant="outlined" size="small" onClick={handleLogout}>
+                  Wyloguj
+                </Button>
               </Box>
 
-              <Box sx={{ mt: 0.5 }}>
+              <Box
+                sx={{
+                  mt: 0.5,
+                  display: "flex",
+                  justifyContent: { xs: "flex-start", md: "flex-end" },
+                }}
+              >
                 <FormControlLabel
                   control={
                     <Switch
                       size="small"
                       checked={themeMode === "dark"}
                       onChange={() =>
-                        setThemeMode((prev) => (prev === "light" ? "dark" : "light"))
+                        setThemeMode((prev) =>
+                          prev === "light" ? "dark" : "light"
+                        )
                       }
                     />
                   }
@@ -538,10 +797,10 @@ function App() {
             <Box
               sx={{
                 display: "grid",
-                gap: 4,
+                gap: 3,
                 gridTemplateColumns: {
                   xs: "1fr",
-                  lg: "minmax(320px, 380px) 1fr",
+                  lg: "320px minmax(0, 1fr)",
                 },
                 alignItems: "start",
               }}
@@ -563,7 +822,9 @@ function App() {
                 onEdit={startEdit}
                 onDelete={handleDelete}
                 onSelect={(task) =>
-                  setSelectedTaskId((prev) => (prev === task.id ? null : task.id))
+                  setSelectedTaskId((prev) =>
+                    prev === task.id ? null : task.id
+                  )
                 }
               />
 
@@ -599,6 +860,17 @@ function App() {
               notification={selectedNotification}
               onBack={openNotificationsView}
               onMarkAsRead={handleMarkNotificationAsRead}
+            />
+          )}
+
+          {currentView === "users" && loggedUser.role === "admin" && (
+            <UsersList
+              users={users}
+              currentUser={loggedUser}
+              onChangeRole={handleChangeUserRole}
+              onBlockUser={handleBlockUser}
+              onUnblockUser={handleUnblockUser}
+              onBackToDashboard={() => setCurrentView("dashboard")}
             />
           )}
         </Container>
