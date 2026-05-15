@@ -866,17 +866,7 @@ function App() {
                 PROJECT MANAGEMENT APP
               </Typography>
 
-              <Typography variant="h4">ManageMe</Typography>
-
-              <Typography color="text.secondary">
-                {currentView === "dashboard" &&
-                  "Zadania, użytkownicy i tablica kanban"}
-                {currentView === "notifications" &&
-                  "Lista wszystkich powiadomień"}
-                {currentView === "notification-details" &&
-                  "Szczegóły powiadomienia"}
-                {currentView === "users" && "Zarządzanie użytkownikami"}
-              </Typography>
+              <Typography variant="h4">LAB 01-08</Typography>
             </Box>
 
             <Box
@@ -1000,7 +990,7 @@ function App() {
                     color="text.secondary"
                     sx={{ mb: 2 }}
                   >
-                    Minimalny CRUD projektów dla testów e2e LAB08.
+                    Zarządzanie projektami aplikacji.
                   </Typography>
 
                   <Box
@@ -1071,17 +1061,29 @@ function App() {
                     ) : (
                       projects.map((project) => (
                         <Box
-                          key={project.id}
-                          data-testid="project-item"
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            display: "grid",
-                            gap: 1,
-                          }}
-                        >
+  key={project.id}
+  data-testid="project-item"
+  sx={{
+    p: 1.5,
+    borderRadius: 3,
+    border: "1px solid",
+    borderColor: "divider",
+    bgcolor:
+      themeMode === "dark"
+        ? "rgba(255,255,255,0.03)"
+        : "rgba(15,23,42,0.02)",
+    display: "grid",
+    gap: 1.25,
+    transition: "border-color 0.18s ease, background-color 0.18s ease",
+    "&:hover": {
+      borderColor: "primary.main",
+      bgcolor:
+        themeMode === "dark"
+          ? "rgba(79,140,255,0.08)"
+          : "rgba(79,140,255,0.06)",
+    },
+  }}
+>
                           <Box>
                             <Typography sx={{ fontWeight: 700 }}>
                               {project.name}
@@ -1130,7 +1132,7 @@ function App() {
                     color="text.secondary"
                     sx={{ mb: 2 }}
                   >
-                    Minimalny CRUD historyjek dla testów e2e LAB08.
+                    Zarządzanie historyjkami projektu.
                   </Typography>
 
                   <Box
@@ -1221,17 +1223,29 @@ function App() {
                     ) : (
                       stories.map((story) => (
                         <Box
-                          key={story.id}
-                          data-testid="story-item"
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            display: "grid",
-                            gap: 1,
-                          }}
-                        >
+  key={story.id}
+  data-testid="story-item"
+  sx={{
+    p: 1.5,
+    borderRadius: 3,
+    border: "1px solid",
+    borderColor: "divider",
+    bgcolor:
+      themeMode === "dark"
+        ? "rgba(255,255,255,0.03)"
+        : "rgba(15,23,42,0.02)",
+    display: "grid",
+    gap: 1.25,
+    transition: "border-color 0.18s ease, background-color 0.18s ease",
+    "&:hover": {
+      borderColor: "primary.main",
+      bgcolor:
+        themeMode === "dark"
+          ? "rgba(79,140,255,0.08)"
+          : "rgba(79,140,255,0.06)",
+    },
+  }}
+>
                           <Box>
                             <Typography sx={{ fontWeight: 700 }}>
                               {story.title}

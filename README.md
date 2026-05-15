@@ -1,3 +1,30 @@
+Aplikacja webowa do zarządzania projektami, historyjkami, zadaniami, użytkownikami i powiadomieniami.
+
+Projekt realizowany etapami w ramach laboratoriów LAB01-LAB08.
+
+## Stack technologiczny
+
+- Vite
+- React
+- TypeScript
+- Material UI
+- localStorage
+- Firebase Firestore
+- Playwright
+
+## Uruchomienie projektu
+
+Instalacja zależności:
+```bash
+npm install
+```
+
+Po świeżym klonie należy zainstalować przeglądarkę Playwright:
+```bash
+npx playwright install chromium
+```
+Bo `npm install` instaluje paczki, ale na nowym urządzeniu Playwright może jeszcze nie mieć pobranej przeglądarki.
+
 ## Changelog
 
 ### LAB01 – CRUD projektów
